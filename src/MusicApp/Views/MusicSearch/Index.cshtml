@@ -1,0 +1,27 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+
+    <div class="container">
+        <div class="row top-buffer">
+            <div class="col-md-8 col-md-offset-2">
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/@ViewData["videoId"]" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-4 col-md-offset-2">
+            <h2>Текст песни</h2>
+            @Html.Raw(@ViewData["songText"])
+        </div>
+        <div class="col-md-4">
+            <h2>Перевод песни</h2>
+            @Html.Raw(@ViewData["songTranslate"])
+        </div>
+    </div>
+</div>
