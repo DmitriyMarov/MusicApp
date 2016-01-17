@@ -27,10 +27,16 @@ textarea {
         line-height: 1.4;
     }
 
+.carousel-inner{
+width: 120%;
+margin-left: -10%;
+}
+
 @media (min-width: 768px) {
     .carousel-caption {
         z-index: 10 !important;
     }
 }
+
 
 .top-buffer { margin-top:20px; }

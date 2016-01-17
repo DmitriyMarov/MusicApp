@@ -11,6 +11,8 @@ using System.Text;
 using System.Net;
 using System.Xml.XPath;
 using HtmlAgilityPack;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 
 //using Google.Apis.Auth.OAuth2;
@@ -33,14 +35,15 @@ namespace MusicApp.Controllers
             if (searchString == null)
                 searchString = "Guns N' Roses - Knocking On Heaven's Door";
 
-            ViewData["videoId"]=GetYoutubeVideo(searchString);
+            ViewData["videoId"] = GetYoutubeVideo(searchString);
 
             string songText = String.Empty;
             string songTranslate = String.Empty;
             FindSongTranslation(searchString, ref songText, ref songTranslate);
             if (songText == String.Empty)
             {
-                FindSongLyrics(searchString);
+                ViewData["songText"] = FindSongLyrics(searchString);
+                ViewData["songTranslate"] = "<p>Перевод не найден</p>";
             }
             else
             {
@@ -80,15 +83,53 @@ namespace MusicApp.Controllers
             return videoId;
         }
 
+        #region Поиск лирики без перевода
+
         /// <summary>
-        /// Ищет лирику по нескольким сайтам, если не найден перевод на амальгаме (пока что на тех, где есть API)
+        /// Ищет лирику на разных сайтах, если не найден перевод на амальгаме
         /// </summary>
         public string FindSongLyrics(string searchString)
         {
-            //apikey=97d0f66763309084b5163502bc2e9d8a
-            //http://api.musixmatch.com/ws/1.1/
-            //http://api.musixmatch.com/ws/1.1/tracking.url.get?apikey=5f423b7772a80f77438407c8b78ff305&format=json&domain=www.mylyricswebsite.com
-            //string query = "http://api.musixmatch.com/ws/1.1/tracking.url.get?apikey=97d0f66763309084b5163502bc2e9d8a&format=json&domain=utaapp.azurewebsites.net/";
+            //пока только один
+            string lyricsText = FindSongLyricsMusixmatch(searchString);
+            return lyricsText;
+        }
+
+        /// <summary>
+        /// Ищет лирику на Chartlyrics
+        /// </summary>
+        public string FindSongLyricsChartlyrics(string searchString)
+        {
+            string[] searchStringSplit = searchString.Split('-');
+            string artist = Uri.EscapeDataString(searchStringSplit[0]);
+            string song = Uri.EscapeDataString(searchStringSplit[1]);
+            string query = "http://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=" + artist + "&song=" + song;
+            using (HttpClient client = new HttpClient())
+            using (HttpResponseMessage response = client.GetAsync(query).Result)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    using (HttpContent content = response.Content)
+                    {
+                        // ... Read the string.
+                        var result = content.ReadAsStringAsync().Result;
+                    }
+                }
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// Ищет лирику на musixmatch
+        /// </summary>
+        public string FindSongLyricsMusixmatch(string searchString)
+        {
+            string lyricsText = String.Empty;
+            #region Поиск через API, возвращает 30% лирики, не катит, но вдруг пригодится
+
+            #region track_id search
+            //List<string> track_ids = new List<string>();
+            //string query = "http://api.musixmatch.com/ws/1.1/track.search?q_track=" + Uri.EscapeDataString(searchString) + "&f_has_lyrics=1&apikey=97d0f66763309084b5163502bc2e9d8a";
             //using (HttpClient client = new HttpClient())
             //using (HttpResponseMessage response = client.GetAsync(query).Result)
             //{
@@ -96,20 +137,110 @@ namespace MusicApp.Controllers
             //    {
             //        using (HttpContent content = response.Content)
             //        {
-            //            // ... Read the string.
             //            var result = content.ReadAsStringAsync().Result;
-                        
+            //            JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
+            //            var entry = JObj["message"];
+
+            //            //получаем id всех треков в списке (какого-то одного нельзя, не у всех есть лирика, даже при установленом флаге поиска)
+
+            //            foreach (var track_list in entry["body"])
+            //            {
+            //                foreach (var track in track_list)
+            //                {
+            //                    foreach (var item in track)
+            //                    {
+            //                        foreach (var item1 in item)
+            //                        {
+            //                            foreach (var item2 in item1)
+            //                            {
+            //                                track_ids.Add(item2["track_id"].ToString());
+            //                            }
+            //                        }
+            //                    }
+            //                    break;
+            //                }
+            //                break;
+            //            }
             //        }
             //    }
             //}
+            #endregion
+            #region lyrics get
 
-            return null;
+            //получаем лирику для данного трека, если лирика пустая, получаем для следующего
+            //foreach (string id in track_ids)
+            //{
+            //    string lyricsQuery = "http://api.musixmatch.com/ws/1.1/track.lyrics.get?track_id=" + id + "&apikey=97d0f66763309084b5163502bc2e9d8a";
+            //    using (HttpClient client = new HttpClient())
+            //    using (HttpResponseMessage response = client.GetAsync(lyricsQuery).Result)
+            //    {
+            //        if (response.IsSuccessStatusCode)
+            //        {
+            //            using (HttpContent content = response.Content)
+            //            {
+            //                var result = content.ReadAsStringAsync().Result;
+            //                JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
+            //                var entry = JObj["message"];
+
+
+            //                foreach (var lyrics in entry["body"])
+            //                {
+            //                    foreach (var item in lyrics)
+            //                    {
+            //                        lyricsText = item["lyrics_body"].ToString();
+            //                        break;
+            //                    }
+            //                    break;
+            //                }
+            //            }
+            //        }
+            //    }
+            //    if (lyricsText != String.Empty)
+            //        break;
+            #endregion
+
+            #endregion
+
+            //API не вариант, но реально пропарсить лирику
+            //Осуществить поиск по сайту будет трудно, но ссылки имеют вид www.musixmatch.com/lyrics/artist/song (где вместо пробелов и других знаков стоят тире), так что применю прямые URL
+
+            string[] searchStringSplit = searchString.Split('-');
+            if(searchStringSplit.Length<2)
+                searchStringSplit = searchString.Split('–');
+            Regex rgx = new Regex("[^a-zA-Z0-9 ]");
+            string artist = rgx.Replace(searchStringSplit[0], "");
+            artist = artist.Replace(" ", "-");
+            string song = rgx.Replace(searchStringSplit[1], "");
+            song = song.Replace(" ", "-");
+            string url = "https://www.musixmatch.com/lyrics/" + artist + "/" + song;
+            using (HttpClient http = new HttpClient())
+            {
+                var response = http.GetByteArrayAsync(url).Result;
+                String source = Encoding.GetEncoding("utf-8").GetString(response, 0, response.Length - 1);
+                source = WebUtility.HtmlDecode(source);
+                HtmlDocument resultat = new HtmlDocument();
+                resultat.LoadHtml(source);
+                List<HtmlNode> translates = resultat.DocumentNode.Descendants("span").Where(x => x.Attributes["id"] != null && x.Attributes["id"].Value.Contains("lyrics-html")).ToList();
+                string[] songTextArray = translates[0].InnerText.Split(new string[] { "\n" }, StringSplitOptions.None);
+                foreach (var item in songTextArray)
+                {
+                    if (item != "")
+                        lyricsText = lyricsText + " <p>" + item + "</p>";
+                    else lyricsText = lyricsText + " <br>";
+                }
+                lyricsText = lyricsText + " <br>";
+                lyricsText = lyricsText + " <p>Lyrics powered by www.musiXmatch.com</p>";
+            }
+
+            return lyricsText;
         }
 
-        /// <summary>
-        /// Ищет перевод на амальгаме, если находит то берёт оттуда ещё и текст
-        /// </summary>
-        public void FindSongTranslation(string searchString, ref string songText, ref string songTranslate)
+        #endregion
+
+    /// <summary>
+    /// Ищет перевод на амальгаме, если находит то берёт оттуда ещё и текст
+    /// </summary>
+    public void FindSongTranslation(string searchString, ref string songText, ref string songTranslate)
         {
             string songURL = String.Empty;
             string searchQuery = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0&cx=partner-pub-6158979219687853:6425061692&num=1&q=" + searchString;
@@ -169,12 +300,22 @@ namespace MusicApp.Controllers
                         songText = songText + " <p>" + item.InnerText + "</p>";
                     else songText = songText + " <br>";
                 }
+                if (songText != String.Empty)
+                {
+                    songText = songText + " <br>";
+                    songText = songText + " <p>Текст песни представлен www.amalgama-lab.com</p>";
+                }
 
                 foreach (var item in translates)
                 {
                     if (item.InnerText != "")
                         songTranslate = songTranslate + " <p>" + item.InnerText + "</p>";
                     else songTranslate = songTranslate + " <br>";
+                }
+                if (songTranslate != String.Empty)
+                {
+                    songTranslate = songTranslate + " <br>";
+                    songTranslate = songTranslate + " <p>Перевод песни представлен www.amalgama-lab.com</p>";
                 }
             }
         }
