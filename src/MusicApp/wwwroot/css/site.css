@@ -18,6 +18,7 @@ textarea {
 }
 
 /* Carousel */
+
 .carousel-caption {
     z-index: 10 !important;
 }
@@ -31,6 +32,24 @@ textarea {
 width: 120%;
 margin-left: -10%;
 }
+
+.carousel-content {
+    color:black;
+    display:flex;
+}
+
+.carousel-control {
+    width: 70px;
+	font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+.carousel-control.left,
+.carousel-control.right { 
+	background:#e4e4e4;
+}
+
+.carousel-control.left { left: -2px; }
+.carousel-control.right { right: -2px; }
+
 
 @media (min-width: 768px) {
     .carousel-caption {

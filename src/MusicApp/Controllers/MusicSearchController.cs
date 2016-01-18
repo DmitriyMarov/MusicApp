@@ -36,7 +36,8 @@ namespace MusicApp.Controllers
                 searchString = "Guns N' Roses - Knocking On Heaven's Door";
 
             ViewData["videoId"] = GetYoutubeVideo(searchString);
-
+            string chordsText = String.Empty;
+            string chordsImages = String.Empty;
             string songText = String.Empty;
             string songTranslate = String.Empty;
             FindSongTranslation(searchString, ref songText, ref songTranslate);
@@ -50,6 +51,9 @@ namespace MusicApp.Controllers
                 ViewData["songText"] = songText;
                 ViewData["songTranslate"] = songTranslate;
             }
+            FindSongChords(searchString, ref chordsText, ref chordsImages);
+            ViewData["chordsText"] = chordsText;
+            ViewData["chordsImages"] = chordsImages;
             return View();
         }
 
@@ -60,7 +64,7 @@ namespace MusicApp.Controllers
         public string GetYoutubeVideo(string searchString)
         {
             string videoId = String.Empty;
-            string query = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=" + Uri.EscapeDataString(searchString) + "&key=AIzaSyCjzzS8bOYKLw0uuTDwWmoMEKr9MpAlvxw";
+            string query = "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=" + Uri.EscapeDataString(searchString) + "&key=AIzaSyA7W5ZNLIRIfxh8jV6vM9oXkDcN7AUH4uA";
             using (HttpClient client = new HttpClient())
             using (HttpResponseMessage response = client.GetAsync(query).Result)
             {
@@ -124,6 +128,7 @@ namespace MusicApp.Controllers
         /// </summary>
         public string FindSongLyricsMusixmatch(string searchString)
         {
+            string songURL = String.Empty;
             string lyricsText = String.Empty;
             #region Поиск через API, возвращает 30% лирики, не катит, но вдруг пригодится
 
@@ -202,17 +207,56 @@ namespace MusicApp.Controllers
             #endregion
 
             //API не вариант, но реально пропарсить лирику
-            //Осуществить поиск по сайту будет трудно, но ссылки имеют вид www.musixmatch.com/lyrics/artist/song (где вместо пробелов и других знаков стоят тире), так что применю прямые URL
+            //Осуществить поиск по сайту будет трудно, но ссылки имеют вид www.musixmatch.com/lyrics/artist/song (где вместо пробелов и других знаков стоят тире), так что пока применю прямые URL
 
-            string[] searchStringSplit = searchString.Split('-');
-            if(searchStringSplit.Length<2)
-                searchStringSplit = searchString.Split('–');
-            Regex rgx = new Regex("[^a-zA-Z0-9 ]");
-            string artist = rgx.Replace(searchStringSplit[0], "");
-            artist = artist.Replace(" ", "-");
-            string song = rgx.Replace(searchStringSplit[1], "");
-            song = song.Replace(" ", "-");
-            string url = "https://www.musixmatch.com/lyrics/" + artist + "/" + song;
+            //string[] searchStringSplit = searchString.Split('-');
+            //if(searchStringSplit.Length<2)
+            //    searchStringSplit = searchString.Split('–');
+            //Regex rgx = new Regex("[^a-zA-Zа-яА-Я0-9 ]");
+            //string artist = rgx.Replace(searchStringSplit[0], "");
+            //artist = artist.Replace(" ", "-");
+            //string song = rgx.Replace(searchStringSplit[1], "");
+            //song = song.Replace(" ", "-");
+            //string url = "https://www.musixmatch.com/lyrics/" + artist + "/" + song;
+
+            //Ищем через API гугла песню по запросу, берём первую в списке
+            string searchQuery = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0&cx=011954953197928556725:rggrcphoxmc&num=1&q=" + searchString;
+            using (HttpClient client = new HttpClient())
+            using (HttpResponseMessage response = client.GetAsync(searchQuery).Result)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    using (HttpContent content = response.Content)
+                    {
+                        var result = content.ReadAsStringAsync().Result;
+                        JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
+                        var entry = JObj["responseData"];
+                        foreach (var item in entry)
+                        {
+                            foreach (var element in item)
+                            {
+                                foreach (var element1 in element)
+                                {
+                                    songURL = element1["unescapedUrl"].ToString();
+                                    break;
+                                }
+                                break;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            lyricsText = HtmlParsingMusixmatch(songURL);
+            return lyricsText;
+        }
+
+        /// <summary>
+        /// Парсит HTML страницы с текстом и переводом песни на амальгаме
+        /// </summary>
+        public string HtmlParsingMusixmatch(string url)
+        {
+            string lyricsText = String.Empty;
             using (HttpClient http = new HttpClient())
             {
                 var response = http.GetByteArrayAsync(url).Result;
@@ -220,32 +264,37 @@ namespace MusicApp.Controllers
                 source = WebUtility.HtmlDecode(source);
                 HtmlDocument resultat = new HtmlDocument();
                 resultat.LoadHtml(source);
-                List<HtmlNode> translates = resultat.DocumentNode.Descendants("span").Where(x => x.Attributes["id"] != null && x.Attributes["id"].Value.Contains("lyrics-html")).ToList();
-                string[] songTextArray = translates[0].InnerText.Split(new string[] { "\n" }, StringSplitOptions.None);
-                foreach (var item in songTextArray)
+                List<HtmlNode> songText = resultat.DocumentNode.Descendants("span").Where(x => x.Attributes["id"] != null && x.Attributes["id"].Value.Contains("lyrics-html")).ToList();
+                if (songText.Count != 0)
                 {
-                    if (item != "")
-                        lyricsText = lyricsText + " <p>" + item + "</p>";
-                    else lyricsText = lyricsText + " <br>";
+                    string[] songTextArray = songText[0].InnerText.Split(new string[] { "\n" }, StringSplitOptions.None);
+                    foreach (var item in songTextArray)
+                    {
+                        if (item != "")
+                            lyricsText = lyricsText + " <p>" + item + "</p>";
+                        else lyricsText = lyricsText + " <br>";
+                    }
+                    lyricsText = lyricsText + " <br>";
+                    lyricsText = lyricsText + " <p>Lyrics powered by www.musiXmatch.com</p>";
                 }
-                lyricsText = lyricsText + " <br>";
-                lyricsText = lyricsText + " <p>Lyrics powered by www.musiXmatch.com</p>";
             }
-
             return lyricsText;
         }
 
         #endregion
 
-    /// <summary>
-    /// Ищет перевод на амальгаме, если находит то берёт оттуда ещё и текст
-    /// </summary>
-    public void FindSongTranslation(string searchString, ref string songText, ref string songTranslate)
+        #region Поиск лирики с переводом
+        /// <summary>
+        /// Ищет перевод на амальгаме, если находит то берёт оттуда ещё и текст
+        /// </summary>
+        public void FindSongTranslation(string searchString, ref string songText, ref string songTranslate)
         {
             string songURL = String.Empty;
-            string searchQuery = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0&cx=partner-pub-6158979219687853:6425061692&num=1&q=" + searchString;
+            string searchQuery = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0&cx=011954953197928556725:o0_e_xj5cjg&num=1&q=" + searchString;
 
             //ищем ссылку на перевод
+            //TODO: поиск слишком "мягкий", если искомой нет, то всё равно может выдать песню, где в названии хотя бы одно слово совпадает
+            //заняться этим, если название песни на в какой-то степени не совпадает с введённым, считать, что поиск ничего не дал
             using (HttpClient client = new HttpClient())
             using (HttpResponseMessage response = client.GetAsync(searchQuery).Result)
             {
@@ -277,13 +326,13 @@ namespace MusicApp.Controllers
             if (songURL == String.Empty)
                 return;
 
-            HtmlParsing(songURL, ref songText, ref songTranslate);
+            HtmlParsingAmalgama(songURL, ref songText, ref songTranslate);
         }
 
         /// <summary>
         /// Парсит HTML страницы с текстом и переводом песни на амальгаме
         /// </summary>
-        public void HtmlParsing(string url, ref string songText, ref string songTranslate)
+        public void HtmlParsingAmalgama(string url, ref string songText, ref string songTranslate)
         {
             using (HttpClient http = new HttpClient())
             {
@@ -320,49 +369,157 @@ namespace MusicApp.Controllers
             }
         }
 
-            //Youtube API не поддерживает .NET 5.0, поэтому пока придётся извращаться
-            //Теперь всё работает, потом посмотреть и этот метод, хотя тот пока работает
+        #endregion
 
-            //public string GetYoutubeVideoAPI(string searchString)
-            //{
-            //var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-            //{
-            //    ApiKey = "AIzaSyCjzzS8bOYKLw0uuTDwWmoMEKr9MpAlvxw",
-            //    ApplicationName = this.GetType().ToString()
-            //});
+        #region Поиск аккордов
+        /// <summary>
+        /// Ищет аккорды на amdmd.ru
+        /// </summary>
+        public void FindSongChords(string searchString, ref string chordsText, ref string chordsImages)
+        {
+            string songURL = String.Empty;
+            //string searchQuery = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0&q=site:amdm.ru%20" + searchString + "&num=1";
+            string searchQuery = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0&cx=011954953197928556725:i_zav28jkea&q=" + searchString + "&key=AIzaSyA7W5ZNLIRIfxh8jV6vM9oXkDcN7AUH4uA";
+            
+            //ищем ссылку на перевод
+            //TODO: почему-то через api не всегда находит что нужно, даже если напрямую через гугл - первая ссылка, разобраться
+            using (HttpClient client = new HttpClient())
+            using (HttpResponseMessage response = client.GetAsync(searchQuery).Result)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    using (HttpContent content = response.Content)
+                    {
+                        var result = content.ReadAsStringAsync().Result;
+                        JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
+                        var entry = JObj["responseData"];
+                        foreach (var item in entry)
+                        {
+                            foreach (var element in item)
+                            {
+                                foreach (var element1 in element)
+                                {
+                                    songURL = element1["unescapedUrl"].ToString();
+                                    break;
+                                }
+                                break;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
 
-            //var searchListRequest = youtubeService.Search.List("snippet");
-            //searchListRequest.Q = searchString; // Replace with your search term.
-            //searchListRequest.MaxResults = 10;
 
-            //// Call the search.list method to retrieve results matching the specified query term.
-            //var searchListResponse = searchListRequest.Execute();
+            if (songURL == String.Empty)
+                return;
 
-            //List<string> videos = new List<string>();
-            //List<string> channels = new List<string>();
-            //List<string> playlists = new List<string>();
-
-            //// Add each result to the appropriate list, and then display the lists of
-            //// matching videos, channels, and playlists.
-            //foreach (var searchResult in searchListResponse.Items)
-            //{
-            //    switch (searchResult.Id.Kind)
-            //    {
-            //        case "youtube#video":
-            //            videos.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, searchResult.Id.VideoId));
-            //            break;
-
-            //        case "youtube#channel":
-            //            channels.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, searchResult.Id.ChannelId));
-            //            break;
-
-            //        case "youtube#playlist":
-            //            playlists.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, searchResult.Id.PlaylistId));
-            //            break;
-            //    }
-            //}
-
-            //    return null;
-            //}
+            HtmlParsingAmDm(songURL, ref chordsText, ref chordsImages);
         }
+
+
+        /// <summary>
+        /// Парсит HTML страницы с текстом и переводом песни на амальгаме
+        /// </summary>
+        public void HtmlParsingAmDm(string url, ref string chordsText, ref string chordsImages)
+        {
+            using (HttpClient http = new HttpClient())
+            {
+                var response = http.GetByteArrayAsync(url).Result;
+                String source = Encoding.GetEncoding("utf-8").GetString(response, 0, response.Length - 1);
+                source = WebUtility.HtmlDecode(source);
+                HtmlDocument resultat = new HtmlDocument();
+                resultat.LoadHtml(source);
+
+                //Парсинг текста песни с аккордами
+                List<HtmlNode> songText = resultat.DocumentNode.Descendants("pre").Where(x => x.Attributes["itemprop"] != null && x.Attributes["itemprop"].Value.Contains("chordsBlock")).ToList();
+                if (songText.Count != 0)
+                {
+                    //string[] songTextArray = songText[0].InnerText.Split(new string[] { "\n", "\r\n" }, StringSplitOptions.None);
+                    //foreach (var item in songTextArray)
+                    //{
+                    //    if (item != "" || item != " ")
+                    //        chordsText = chordsText + " <p>" + item + "</p>";
+                    //    else chordsText = chordsText + " <br>";
+                    //}
+                    //chordsText = chordsText + " <br>";
+                    //chordsText = chordsText + " <p>Аккорды представлены сайтом amdm.ru</p>";
+                    chordsText = songText[0].InnerText;
+                    chordsText += "\n\n____________________________________";
+                    chordsText +=  "\n\nАккорды представлены сайтом amdm.ru";
+                    //Парсинг изображений аккордов
+                    List<HtmlNode> songChords = resultat.DocumentNode.Descendants("div").Where(x => x.Attributes["id"] != null && x.Attributes["id"].Value.Contains("song_chords")).ToList();
+                    int i = 0;
+                    foreach (var item in songChords)
+                    {
+                        chordsImages += item.InnerHtml;
+                    }
+                }
+            }
+        }
+
+        #endregion
+
+        #region поиск музыки для покупки
+        public string GetItunesLink(string searchString)
+        {
+
+            return null;
+        }
+
+        #endregion
+
+
+
+
+
+
+
+
+
+        //Youtube API не поддерживает .NET 5.0, поэтому пока придётся извращаться
+        //Теперь всё работает, потом посмотреть и этот метод, хотя тот пока работает
+
+        //public string GetYoutubeVideoAPI(string searchString)
+        //{
+        //var youtubeService = new YouTubeService(new BaseClientService.Initializer()
+        //{
+        //    ApiKey = "AIzaSyCjzzS8bOYKLw0uuTDwWmoMEKr9MpAlvxw",
+        //    ApplicationName = this.GetType().ToString()
+        //});
+
+        //var searchListRequest = youtubeService.Search.List("snippet");
+        //searchListRequest.Q = searchString; // Replace with your search term.
+        //searchListRequest.MaxResults = 10;
+
+        //// Call the search.list method to retrieve results matching the specified query term.
+        //var searchListResponse = searchListRequest.Execute();
+
+        //List<string> videos = new List<string>();
+        //List<string> channels = new List<string>();
+        //List<string> playlists = new List<string>();
+
+        //// Add each result to the appropriate list, and then display the lists of
+        //// matching videos, channels, and playlists.
+        //foreach (var searchResult in searchListResponse.Items)
+        //{
+        //    switch (searchResult.Id.Kind)
+        //    {
+        //        case "youtube#video":
+        //            videos.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, searchResult.Id.VideoId));
+        //            break;
+
+        //        case "youtube#channel":
+        //            channels.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, searchResult.Id.ChannelId));
+        //            break;
+
+        //        case "youtube#playlist":
+        //            playlists.Add(String.Format("{0} ({1})", searchResult.Snippet.Title, searchResult.Id.PlaylistId));
+        //            break;
+        //    }
+        //}
+
+        //    return null;
+        //}
+    }
 }
