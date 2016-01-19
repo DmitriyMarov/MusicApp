@@ -1,0 +1,110 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+    ViewData["Title"] = "Настройка отображения страницы с музыкой";
+}
+
+<div class="container">
+    <div class="row">
+        <h2>Настройка отображения страницы с музыкой</h2>
+    </div>
+</div>
+
+<br/>
+
+<p>В каждой вкладке вы можете выбрать либо 1 полноэкранный элемент, либо 2 полуэкранных</p>
+@using (Html.BeginForm("Journaux", "Company"))
+{
+<div class="row">
+
+    <div class="col-md-12">
+        <div id="myCarousel" class="carousel slide" data-ride="carousel" data-interval=false>
+            <div class="carousel-inner">
+                <div class="item active">
+                    <div class="container">
+                        <div class="row">
+                            <br />
+                            <div class="col-md-6 col-md-offset-3">
+                                @Html.DropDownList("dropDown3", ViewData["dropDown3"] as SelectList, new
+                           {
+                               size = "1",
+                               style = "width: 500px"
+                           })
+                            </div>
+                            <br/> <br /> <br />
+                            <div class="col-md-2 col-md-offset-1">
+                                @Html.DropDownList("dropDown1", ViewData["dropDown1"] as SelectList)
+                            </div>
+                            <div class="col-md-2 col-md-offset-5">
+                                @Html.DropDownList("dropDown2", ViewData["dropDown2"] as SelectList)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="container">
+                        <div class="row">
+                            <br />
+                            <div class="col-md-6 col-md-offset-3">
+                                @Html.DropDownList("dropDown6", ViewData["dropDown6"] as SelectList, new
+                           {
+                               size = "1",
+                               style = "width: 500px"
+                           })
+                            </div>
+                            <br /> <br /> <br />
+                            <div class="col-md-2 col-md-offset-1">
+                                @Html.DropDownList("dropDown3", ViewData["dropDown3"] as SelectList)
+                            </div>
+                            <div class="col-md-2 col-md-offset-5">
+                                @Html.DropDownList("dropDown4", ViewData["dropDown4"] as SelectList)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="row">
+                        <br />
+                        <div class="col-md-6 col-md-offset-3">
+                            @Html.DropDownList("dropDown9", ViewData["dropDown9"] as SelectList, new
+                       {
+                           size = "1",
+                           style = "width: 500px"
+                       })
+                        </div>
+                        <br /> <br /> <br />
+                        <div class="col-md-2 col-md-offset-2">
+                            @Html.DropDownList("dropDown7", ViewData["dropDown7"] as SelectList)
+                        </div>
+                        <div class="col-md-2 col-md-offset-4">
+                            @Html.DropDownList("dropDown8", ViewData["dropDown8"] as SelectList)
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <ol class="carousel-indicators">
+                <li data-target="#myCarousel" data-slide-to="0" class="active"></li>
+                <li data-target="#myCarousel" data-slide-to="1"></li>
+                <li data-target="#myCarousel" data-slide-to="2"></li>
+            </ol>
+            <a class="left carousel-control" href="#myCarousel" data-slide="prev">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+            </a>
+            <a class="right carousel-control" href="#myCarousel" data-slide="next">
+                <span class="glyphicon glyphicon-chevron-right"></span>
+            </a>
+        </div>
+    </div>
+</div>
+<br/>
+<div class="row">
+    <div class="col-md-2 col-md-offset-5">
+        <form asp-controller="PageOrders" asp-action="SaveSettings">
+        <button class="btn btn-default btn-lg" type="submit">
+            Сохранить
+        </button>
+        </form>
+    </div>
+</div>
+}

@@ -8,9 +8,10 @@ using MusicApp.Models;
 namespace MusicApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20160119104452_pageorders")]
+    partial class pageorders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
@@ -151,13 +152,11 @@ namespace MusicApp.Migrations
                     b.Property<int>("ID")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("ContentSize");
-
                     b.Property<string>("PageContent");
 
                     b.Property<int>("PageNumber");
 
-                    b.Property<string>("UserID");
+                    b.Property<int>("UserID");
 
                     b.HasKey("ID");
 
