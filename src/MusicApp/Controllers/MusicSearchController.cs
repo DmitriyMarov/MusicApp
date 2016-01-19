@@ -31,8 +31,7 @@ namespace MusicApp.Controllers
     {
         // GET: /<controller>/
 
-        //TODO: настройки порядка отображения у пользователей; топ самых частых запросов
-        public IActionResult Index(string searchString)
+            public IActionResult Index(string searchString)
         {
             string chordsText = String.Empty;
             string chordsImages = String.Empty;
@@ -75,7 +74,7 @@ namespace MusicApp.Controllers
             ViewData["itunesLink"] = GetItunesLink(searchString);
             ViewData["lastfmLink"] = GetLastfmLink(searchString);
 
-
+            //TODO: доделать отображение по правилам, работает криво, пока что оставил по дефолту
             return View();
         }
 
@@ -94,7 +93,6 @@ namespace MusicApp.Controllers
                 {
                     using (HttpContent content = response.Content)
                     {
-                        // ... Read the string.
                         var result = content.ReadAsStringAsync().Result;
                         JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
                         var entry = JObj["items"];
@@ -562,7 +560,7 @@ namespace MusicApp.Controllers
 
 
         //Youtube API не поддерживает .NET 5.0, поэтому пока придётся извращаться
-        //Теперь всё работает, потом посмотреть и этот метод, хотя тот пока работает
+        //Теперь разобрался, будет работать, потом посмотреть и этот метод, хотя тот пока работает
 
         //public string GetYoutubeVideoAPI(string searchString)
         //{
