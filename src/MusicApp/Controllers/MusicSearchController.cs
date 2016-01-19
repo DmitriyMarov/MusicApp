@@ -30,16 +30,22 @@ namespace MusicApp.Controllers
     public class MusicSearchController : Controller
     {
         // GET: /<controller>/
+
+        //TODO: настройки порядка отображения у пользователей; топ самых частых запросов
         public IActionResult Index(string searchString)
         {
-            if (searchString == null)
-                searchString = "Guns N' Roses - Knocking On Heaven's Door";
-
-            ViewData["videoId"] = GetYoutubeVideo(searchString);
             string chordsText = String.Empty;
             string chordsImages = String.Empty;
             string songText = String.Empty;
             string songTranslate = String.Empty;
+
+            if (searchString == null)
+                searchString = "Guns N' Roses - Knocking On Heaven's Door";
+
+            //Получает id видео с песней на youtube
+            ViewData["videoId"] = GetYoutubeVideo(searchString);
+
+            //ищет перевод песни, если не находит то ищет просто текст
             FindSongTranslation(searchString, ref songText, ref songTranslate);
             if (songText == String.Empty)
             {
@@ -51,9 +57,25 @@ namespace MusicApp.Controllers
                 ViewData["songText"] = songText;
                 ViewData["songTranslate"] = songTranslate;
             }
+            //ищет аккорды песни
             FindSongChords(searchString, ref chordsText, ref chordsImages);
-            ViewData["chordsText"] = chordsText;
-            ViewData["chordsImages"] = chordsImages;
+            if (chordsText != String.Empty)
+            {
+                ViewData["chordsText"] = chordsText;
+                if (chordsImages != String.Empty)
+                    ViewData["chordsImages"] = chordsImages;
+                else ViewData["chordsImages"] = "<p>Аппликатур не найден</p>";
+            }
+            else
+            {
+                ViewData["chordsText"] = "<p>Аккордов не найдено</p>";
+            }
+
+            //ищет дополнительную информацию по песне: itunes, google music, spotify, last.fm и т.д.
+            ViewData["itunesLink"] = GetItunesLink(searchString);
+            ViewData["lastfmLink"] = GetLastfmLink(searchString);
+
+
             return View();
         }
 
@@ -94,8 +116,9 @@ namespace MusicApp.Controllers
         /// </summary>
         public string FindSongLyrics(string searchString)
         {
-            //пока только один
             string lyricsText = FindSongLyricsMusixmatch(searchString);
+            if (lyricsText == String.Empty)
+                FindSongLyricsChartlyrics(searchString);
             return lyricsText;
         }
 
@@ -449,7 +472,6 @@ namespace MusicApp.Controllers
                     chordsText +=  "\n\nАккорды представлены сайтом amdm.ru";
                     //Парсинг изображений аккордов
                     List<HtmlNode> songChords = resultat.DocumentNode.Descendants("div").Where(x => x.Attributes["id"] != null && x.Attributes["id"].Value.Contains("song_chords")).ToList();
-                    int i = 0;
                     foreach (var item in songChords)
                     {
                         chordsImages += item.InnerHtml;
@@ -460,11 +482,73 @@ namespace MusicApp.Controllers
 
         #endregion
 
-        #region поиск музыки для покупки
+        #region дополнительная информация о песне
+
+        /// <summary>
+        /// Получает ссылку на песню в iTunes
+        /// </summary>
         public string GetItunesLink(string searchString)
         {
+            string songURL = String.Empty;
+            string searchQuery = "https://itunes.apple.com/search?term=" + Uri.EscapeDataString(searchString) + "&limit=1";
+                using (HttpClient client = new HttpClient())
+            using (HttpResponseMessage response = client.GetAsync(searchQuery).Result)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    using (HttpContent content = response.Content)
+                    {
+                        var result = content.ReadAsStringAsync().Result;
+                        JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
+                        var entry = JObj["results"];
+                        foreach (var item in entry)
+                        {
+                            songURL = item["trackViewUrl"].ToString();
+                            break;
+                        }
+                    }
+                }
+            }
+            return songURL;
+        }
 
-            return null;
+        /// <summary>
+        /// Получает ссылку в last.fm
+        /// </summary>
+        public string GetLastfmLink(string searchString)
+        {
+            string songURL = String.Empty;
+            string searchQuery = "http://ws.audioscrobbler.com/2.0/?method=track.search&track=" + Uri.EscapeDataString(searchString) + "&limit=1&api_key=a54fb212c086eb69661f81a98fe56c92&format=json";
+            using (HttpClient client = new HttpClient())
+            using (HttpResponseMessage response = client.GetAsync(searchQuery).Result)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    using (HttpContent content = response.Content)
+                    {
+                        var result = content.ReadAsStringAsync().Result;
+                        JObject JObj = (JObject)JsonConvert.DeserializeObject(result);
+                        var entry = JObj["results"];
+                        var entry1 = entry["trackmatches"];
+                        var entry2 = entry1["track"];
+                        foreach (var item in entry1)
+                        {
+                            foreach (var item1 in item)
+                            {
+                                foreach (var item2 in item1)
+                                {
+                                    songURL = item2["url"].ToString();
+                                    break;
+                                }
+                                break;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            songURL = songURL.Replace("last.fm/", "last.fm/ru/");
+            return songURL;
         }
 
         #endregion
